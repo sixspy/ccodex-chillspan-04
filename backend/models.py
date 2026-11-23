@@ -46,6 +46,8 @@ class SealIn(BaseModel):
 
 class SpectrumIn(BaseModel):
     batch_id: int
+    # 甲路径：导出请求必须显式携带当前封批代，缺失/错代一律拒收
+    generation: int = Field(ge=1)
 
 
 class LineageIn(BaseModel):

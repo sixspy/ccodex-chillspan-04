@@ -83,7 +83,7 @@ createApp({
     });
     const excOpenForm = ref({ batch_id: 0, threshold: null, note: "" });
     const sealForm = ref({ batch_id: 0, manifest: "" });
-    const spectrumForm = ref({ batch_id: 0 });
+    const spectrumForm = ref({ batch_id: 0, generation: 1 });
     const lineageForm = ref({
       from_batch_id: 1,
       to_batch_id: 2,
@@ -130,6 +130,35 @@ createApp({
     const sealedBatches = computed(() =>
       batches.value.filter((b) => b.status === "已封批")
     );
+
+    // 五页同态：批次当前封批代唯一口径取 temp_batches.generation
+    function currentGenerationOf(batchId) {
+      const b = batches.value.find((x) => x.id === batchId);
+      return b ? Number(b.generation) : null;
+    }
+    // 温谱页：导出绑定代与当前封批代同态比对
+    function exportCurrentGeneration(x) {
+      return currentGenerationOf(x.batch_id);
+    }
+    function exportGenerationAligned(x) {
+      const cur = currentGenerationOf(x.batch_id);
+      return cur !== null && Number(x.generation) === cur;
+    }
+    function syncSpectrumGeneration() {
+      const cur = currentGenerationOf(spectrumForm.value.batch_id);
+      if (cur !== null) spectrumForm.value.generation = cur;
+    }
+    // 封批页：该批次最新封批快照代是否等于当前代
+    function sealGenerationAligned(s) {
+      const cur = currentGenerationOf(s.batch_id);
+      return cur !== null && Number(s.batch_generation) === cur;
+    }
+    // 血缘页：边两端批次代际同态展示
+    function edgeGenerationText(edge) {
+      const g1 = edge.from_generation != null ? `G${edge.from_generation}` : "—";
+      const g2 = edge.to_generation != null ? `G${edge.to_generation}` : "—";
+      return `${g1} → ${g2}`;
+    }
 
     function fmtTemp(n) {
       if (n === null || n === undefined || n === "") return "—";
@@ -236,6 +265,7 @@ createApp({
         }
         if (sealedBatches.value.length) {
           spectrumForm.value.batch_id = sealedBatches.value[0].id;
+          syncSpectrumGeneration();
         }
         if (probes.value.length) {
           calForm.value.probe_id = probes.value[0].id;
@@ -494,6 +524,12 @@ createApp({
       openableBatches,
       sealableBatches,
       sealedBatches,
+      currentGenerationOf,
+      exportCurrentGeneration,
+      exportGenerationAligned,
+      syncSpectrumGeneration,
+      sealGenerationAligned,
+      edgeGenerationText,
       login,
       logout,
       refresh,

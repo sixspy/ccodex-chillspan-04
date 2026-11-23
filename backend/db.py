@@ -122,6 +122,7 @@ CREATE TABLE IF NOT EXISTS spectrum_exports(
   point_count INTEGER NOT NULL,
   checksum TEXT NOT NULL,
   status TEXT NOT NULL,
+  generation INTEGER,
   created_at TEXT NOT NULL,
   FOREIGN KEY(batch_id) REFERENCES temp_batches(id)
 );
@@ -398,9 +399,35 @@ def seed_lineage_samples(conn: sqlite3.Connection) -> None:
     )
 
 
+def _migrate(conn: sqlite3.Connection) -> None:
+    """轻量演进：温谱正式表补封批代绑定列，并回填既有行。"""
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(spectrum_exports)")}
+    if "generation" not in cols:
+        conn.execute("ALTER TABLE spectrum_exports ADD COLUMN generation INTEGER")
+    # 回填：从导出号 SP-{batch_code}-G{n} 解析代，解析不到则回退当前批次代
+    rows = conn.execute(
+        """SELECT s.id, s.export_ref, b.generation AS batch_gen
+           FROM spectrum_exports s JOIN temp_batches b ON b.id=s.batch_id
+           WHERE s.generation IS NULL"""
+    ).fetchall()
+    for r in rows:
+        gen = None
+        ref = r["export_ref"] or ""
+        marker = "-G"
+        if marker in ref:
+            tail = ref.rsplit(marker, 1)[1]
+            if tail.isdigit():
+                gen = int(tail)
+        conn.execute(
+            "UPDATE spectrum_exports SET generation=? WHERE id=?",
+            (gen if gen is not None else r["batch_gen"], r["id"]),
+        )
+
+
 def init_db() -> None:
     with connect() as conn:
         conn.executescript(SCHEMA)
+        _migrate(conn)
         seed_users(conn)
         seed_chambers(conn)
         seed_probes(conn)

@@ -14,7 +14,9 @@ export const reconcileViewTemplate = `
     <p>配额 {{ reconOne.quota_batches }} · 在批 {{ reconOne.active_batches }} · <span :class="reconOne.balanced ? 'ok' : 'bad'">{{ reconOne.balanced ? "平衡" : "失衡" }}</span></p>
   </div>
   <div v-if="proofOne" class="detail-box">
-    <p>状态 {{ proofOne.status }} · 开放游标 {{ proofOne.open_excursions }} · 温谱 {{ proofOne.spectrum_exports }}</p>
+    <p>状态 {{ proofOne.status }} · 当前封批代 G{{ proofOne.generation }} · 封批快照代 {{ proofOne.seal_generation != null ? "G" + proofOne.seal_generation : "—" }}</p>
+    <p>开放游标 {{ proofOne.open_excursions }} · 温谱正式行 {{ proofOne.spectrum_exports }} · 导出代 {{ (proofOne.spectrum_generations || []).map(g => "G" + g).join(", ") || "—" }}</p>
+    <p>代际对账：<span :class="proofOne.spectrum_matches_seal ? 'ok' : 'bad'">{{ proofOne.spectrum_matches_seal ? "导出代与当前封批代一致" : "错代：导出代与当前封批代不一致" }}</span></p>
   </div>
   <table class="data-table">
     <thead><tr><th>仓间</th><th>区域</th><th>在批</th><th>余配额</th><th>平衡</th></tr></thead>

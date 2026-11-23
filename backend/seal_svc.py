@@ -86,4 +86,6 @@ def seal_batch(body: SealIn, authorization: AuthHeader = None):
                 "status": "已封批",
             }
         finally:
+            # 异常退出时上下文管理器会回滚，故释放后须显式提交，避免锁残留
             release(conn, lock_key, user)
+            conn.commit()

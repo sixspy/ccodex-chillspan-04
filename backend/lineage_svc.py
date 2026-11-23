@@ -15,7 +15,8 @@ def list_edges(authorization: AuthHeader = None):
     require_user(authorization)
     with connect() as conn:
         rows = conn.execute(
-            """SELECT e.*, a.batch_code from_code, b.batch_code to_code
+            """SELECT e.*, a.batch_code from_code, b.batch_code to_code,
+                      a.generation from_generation, b.generation to_generation
                FROM lineage_edges e
                JOIN temp_batches a ON a.id=e.from_batch_id
                LEFT JOIN temp_batches b ON b.id=e.to_batch_id

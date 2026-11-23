@@ -85,26 +85,51 @@ def batch_proof(batch_code: str, authorization: AuthHeader = None):
                WHERE batch_id=? AND status='开放'""",
             (batch["id"],),
         ).fetchone()["c"]
-        exports = conn.execute(
-            """SELECT COUNT(*) c FROM spectrum_exports
+        exports_rows = conn.execute(
+            """SELECT export_ref, generation FROM spectrum_exports
                WHERE batch_id=? AND status='已导出'""",
             (batch["id"],),
-        ).fetchone()["c"]
+        ).fetchall()
+        exports = len(exports_rows)
+        # 五页同态口径：互证逐行核对导出代 == 当前封批代，错代即不一致，
+        # 不再按条数凑一致
+        export_gens = sorted(
+            {int(r["generation"]) for r in exports_rows if r["generation"] is not None}
+        )
         sealed = batch["status"] == "已封批"
-        spectrum_ok = (exports >= 1) if sealed else True
+        current_gen = int(batch["generation"])
+        latest_seal = conn.execute(
+            """SELECT batch_generation FROM seal_snapshots
+               WHERE batch_id=? ORDER BY id DESC LIMIT 1""",
+            (batch["id"],),
+        ).fetchone()
+        seal_gen = int(latest_seal["batch_generation"]) if latest_seal else None
+        if sealed:
+            spectrum_ok = (
+                exports >= 1
+                and bool(export_gens)
+                and all(g == current_gen for g in export_gens)
+                and (seal_gen is None or seal_gen == current_gen)
+            )
+        else:
+            spectrum_ok = True
         return {
             "batch_code": batch_code,
             "status": batch["status"],
-            "generation": batch["generation"],
+            "generation": current_gen,
+            "seal_generation": seal_gen,
             "open_excursions": open_exc,
             "spectrum_exports": exports,
+            "spectrum_generations": export_gens,
             "sealed": sealed,
             "excursion_closed": open_exc == 0,
             "spectrum_matches_seal": spectrum_ok,
             "proof": {
-                "formula": "sealed => spectrum>=1 and open_excursions==0",
+                "formula": "sealed => spectrum>=1 and every export_generation==current_generation",
                 "sealed": sealed,
                 "open_excursions": open_exc,
                 "exports": exports,
+                "current_generation": current_gen,
+                "spectrum_generations": export_gens,
             },
         }

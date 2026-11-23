@@ -70,9 +70,14 @@ def test_inbound_excursion_seal_spectrum_flow():
     seal = c.post("/api/seals", headers=h, json={"batch_id": batch["id"]})
     assert seal.status_code == 200
     assert seal.json()["status"] == "已封批"
-    sp = c.post("/api/spectrum/export", headers=h, json={"batch_id": batch["id"]})
+    sp = c.post(
+        "/api/spectrum/export",
+        headers=h,
+        json={"batch_id": batch["id"], "generation": seal.json()["generation"]},
+    )
     assert sp.status_code == 200
     assert sp.json()["point_count"] == 3
+    assert sp.json()["generation"] == seal.json()["generation"]
     proof = c.get("/api/proof/batch/TB-FLOW-001", headers=h).json()
     assert proof["spectrum_matches_seal"] is True
     assert proof["excursion_closed"] is True
